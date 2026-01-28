@@ -94,10 +94,8 @@ model Loan {
 }
 
 enum PaymentMethod {
-  TJ       // Transfer Jaime
-  TM       // Transfer Monica
-  T        // Transfer (generic)
-  EFECTIVO // Cash
+  EFECTIVO      // Cash
+  TRANSFERENCIA // Bank transfer
 }
 
 model Payment {

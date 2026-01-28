@@ -63,7 +63,7 @@ export class LoanRepository {
     investorId: string;
     originalAmount: number;
     loanDate: Date;
-    paymentMethod?: 'TJ' | 'TM' | 'T' | 'EFECTIVO';
+    paymentMethod?: 'EFECTIVO' | 'TRANSFERENCIA';
     notes?: string;
     createdBy?: string;
   }): Promise<Loan> {
@@ -80,7 +80,7 @@ export class LoanRepository {
     });
   }
 
-  static async update(id: string, data: { notes?: string; paymentMethod?: 'TJ' | 'TM' | 'T' | 'EFECTIVO' }): Promise<Loan> {
+  static async update(id: string, data: { notes?: string; paymentMethod?: 'EFECTIVO' | 'TRANSFERENCIA' }): Promise<Loan> {
     return prisma.loan.update({ where: { id }, data });
   }
 

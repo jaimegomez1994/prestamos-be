@@ -3,13 +3,13 @@ export interface CreateLoanDTO {
   investorId: string;
   originalAmount: number;
   loanDate: string;
-  paymentMethod?: 'TJ' | 'TM' | 'T' | 'EFECTIVO';
+  paymentMethod?: 'EFECTIVO' | 'TRANSFERENCIA';
   notes?: string;
 }
 
 export interface UpdateLoanDTO {
   notes?: string;
-  paymentMethod?: 'TJ' | 'TM' | 'T' | 'EFECTIVO';
+  paymentMethod?: 'EFECTIVO' | 'TRANSFERENCIA';
 }
 
 export interface LoanResponse {

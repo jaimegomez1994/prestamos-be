@@ -23,7 +23,7 @@ export const createLoanValidation = [
     .withMessage('Fecha invalida'),
   body('paymentMethod')
     .optional()
-    .isIn(['TJ', 'TM', 'T', 'EFECTIVO'])
+    .isIn(['EFECTIVO', 'TRANSFERENCIA'])
     .withMessage('Metodo de pago invalido'),
   body('notes')
     .optional()
@@ -35,7 +35,7 @@ export const createLoanValidation = [
 export const updateLoanValidation = [
   body('paymentMethod')
     .optional()
-    .isIn(['TJ', 'TM', 'T', 'EFECTIVO'])
+    .isIn(['EFECTIVO', 'TRANSFERENCIA'])
     .withMessage('Metodo de pago invalido'),
   body('notes')
     .optional()
