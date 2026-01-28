@@ -3,16 +3,27 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const dummy = await prisma.dummy.upsert({
-    where: { id: 'seed-1' },
-    update: {},
-    create: {
-      id: 'seed-1',
-      message: 'Hello from Prestamos DB!',
-    },
-  });
+  // Seed investors (skip if already exist)
+  const investorNames = [
+    'Jaime Gomez Morales',
+    'Jaime Gomez Dominguez',
+    'Monica Dominguez',
+  ];
 
-  console.log('Seeded:', dummy);
+  for (const name of investorNames) {
+    const existing = await prisma.investor.findFirst({ where: { name } });
+    if (!existing) {
+      await prisma.investor.create({
+        data: { name, profitPercentage: 70.00 },
+      });
+      console.log(`Created investor: ${name}`);
+    } else {
+      console.log(`Investor already exists: ${name}`);
+    }
+  }
+
+  const investors = await prisma.investor.findMany();
+  console.log('Investors:', investors.map(i => ({ id: i.id, name: i.name })));
 }
 
 main()

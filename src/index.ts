@@ -20,11 +20,12 @@ app.use(express.json());
 // Health check endpoint
 app.get('/health', async (_req, res) => {
   try {
-    const row = await prisma.dummy.findFirst();
+    const investors = await prisma.investor.findMany();
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      dbRow: row
+      investorCount: investors.length,
+      investors: investors.map(i => i.name)
     });
   } catch (error) {
     res.status(500).json({

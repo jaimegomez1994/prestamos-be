@@ -7,10 +7,135 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Dummy {
-  id        String   @id @default(cuid())
-  message   String
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  phone     String?
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("dummy")
+  // Relations
+  customer         Customer?
+  loansCreated     Loan[]            @relation("LoanCreatedBy")
+  paymentsCreated  Payment[]         @relation("PaymentCreatedBy")
+  collectionsBy    CollectionStatus[] @relation("CollectedBy")
+
+  @@map("users")
+}
+
+enum Role {
+  admin
+  operator
+  collector
+  customer
+}
+
+model Investor {
+  id               String   @id @default(uuid())
+  name             String
+  profitPercentage Decimal  @default(70.00) @map("profit_percentage") @db.Decimal(5, 2)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  loans Loan[]
+
+  @@map("investors")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  notes     String?
+  userId    String?  @unique @map("user_id")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User?  @relation(fields: [userId], references: [id])
+  loans Loan[]
+
+  @@map("customers")
+}
+
+model Loan {
+  id             String    @id @default(uuid())
+  customerId     String    @map("customer_id")
+  investorId     String    @map("investor_id")
+  originalAmount Decimal   @map("original_amount") @db.Decimal(12, 2)
+  loanDate       DateTime  @map("loan_date") @db.Date
+  paymentMethod  PaymentMethod? @map("payment_method")
+  notes          String?
+  isSettled      Boolean   @default(false) @map("is_settled")
+  settledAt      DateTime? @map("settled_at")
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  customer         Customer           @relation(fields: [customerId], references: [id])
+  investor         Investor           @relation(fields: [investorId], references: [id])
+  createdByUser    User?              @relation("LoanCreatedBy", fields: [createdBy], references: [id])
+  payments         Payment[]
+  collectionStatus CollectionStatus[]
+
+  @@index([customerId])
+  @@index([investorId])
+  @@index([isSettled])
+  @@index([loanDate])
+  @@map("loans")
+}
+
+enum PaymentMethod {
+  TJ       // Transfer Jaime
+  TM       // Transfer Monica
+  T        // Transfer (generic)
+  EFECTIVO // Cash
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  loanId        String        @map("loan_id")
+  paymentDate   DateTime      @map("payment_date") @db.Date
+  interestPaid  Decimal       @default(0) @map("interest_paid") @db.Decimal(12, 2)
+  capitalPaid   Decimal       @default(0) @map("capital_paid") @db.Decimal(12, 2)
+  paymentMethod PaymentMethod? @map("payment_method")
+  screenshotUrl String?       @map("screenshot_url")
+  notes         String?
+  createdBy     String?       @map("created_by")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  loan          Loan @relation(fields: [loanId], references: [id])
+  createdByUser User? @relation("PaymentCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([loanId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model CollectionStatus {
+  id          String    @id @default(uuid())
+  loanId      String    @map("loan_id")
+  cycleDate   DateTime  @map("cycle_date") @db.Date
+  isCollected Boolean   @default(false) @map("is_collected")
+  collectedAt DateTime? @map("collected_at")
+  collectedBy String?   @map("collected_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  loan            Loan  @relation(fields: [loanId], references: [id])
+  collectedByUser User? @relation("CollectedBy", fields: [collectedBy], references: [id])
+
+  @@unique([loanId, cycleDate])
+  @@index([cycleDate])
+  @@map("collection_status")
 }
