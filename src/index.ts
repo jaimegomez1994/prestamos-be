@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { prisma } from './lib/prisma';
+import { apiRoutes } from './routes';
 
 dotenv.config();
 
@@ -16,6 +17,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+// API Routes
+app.use('/api', apiRoutes);
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {

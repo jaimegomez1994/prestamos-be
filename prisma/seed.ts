@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/lib/password';
 
 const prisma = new PrismaClient();
 
@@ -24,6 +25,25 @@ async function main() {
 
   const investors = await prisma.investor.findMany();
   console.log('Investors:', investors.map(i => ({ id: i.id, name: i.name })));
+
+  // Seed default admin user
+  const adminEmail = 'admin@gdprestamos.mx';
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (!existingAdmin) {
+    const hashedPassword = await hashPassword('admin123');
+    const admin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: 'Admin',
+        role: 'admin',
+      },
+    });
+    console.log(`Created admin user: ${admin.email} (password: admin123)`);
+  } else {
+    console.log(`Admin user already exists: ${adminEmail}`);
+  }
 }
 
 main()
