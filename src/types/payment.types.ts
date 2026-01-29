@@ -1,5 +1,5 @@
 export interface CreatePaymentDTO {
-  loanId: string;
+  customerId: string;
   paymentDate: string;
   interestPaid: number;
   capitalPaid: number;

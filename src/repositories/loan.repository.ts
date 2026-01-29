@@ -111,6 +111,18 @@ export class LoanRepository {
     });
   }
 
+  static async findActiveByCustomerId(customerId: string) {
+    return prisma.loan.findMany({
+      where: { customerId, isSettled: false },
+      include: {
+        customer: { select: { id: true, name: true } },
+        investor: { select: { id: true, name: true } },
+        payments: true,
+      },
+      orderBy: { originalAmount: 'asc' },
+    });
+  }
+
   static async getLoanWithPayments(id: string) {
     return prisma.loan.findUnique({
       where: { id },

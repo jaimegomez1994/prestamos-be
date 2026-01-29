@@ -1,11 +1,11 @@
 import { body } from 'express-validator';
 
 export const createPaymentValidation = [
-  body('loanId')
+  body('customerId')
     .notEmpty()
-    .withMessage('El ID del prestamo es requerido')
+    .withMessage('El ID del cliente es requerido')
     .isUUID()
-    .withMessage('ID de prestamo invalido'),
+    .withMessage('ID de cliente invalido'),
   body('paymentDate')
     .notEmpty()
     .withMessage('La fecha de pago es requerida')

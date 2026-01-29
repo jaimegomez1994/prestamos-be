@@ -47,13 +47,13 @@ export class PaymentController {
   static async create(req: Request, res: Response) {
     try {
       const userId = req.user?.userId;
-      const payment = await PaymentService.create(req.body, userId);
-      res.status(201).json(payment);
+      const payments = await PaymentService.create(req.body, userId);
+      res.status(201).json(payments);
     } catch (error) {
       if (error instanceof Error) {
         if (
-          error.message === 'Prestamo no encontrado' ||
-          error.message.includes('No se puede registrar') ||
+          error.message === 'Cliente no encontrado' ||
+          error.message.includes('no tiene prestamos activos') ||
           error.message.includes('no pueden ser negativos') ||
           error.message.includes('Debe ingresar') ||
           error.message.includes('excede el saldo')

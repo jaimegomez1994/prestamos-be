@@ -1,5 +1,6 @@
 import { PaymentRepository } from '../repositories/payment.repository';
 import { LoanRepository } from '../repositories/loan.repository';
+import { CustomerRepository } from '../repositories/customer.repository';
 import type {
   CreatePaymentDTO,
   UpdatePaymentDTO,
@@ -52,15 +53,17 @@ export class PaymentService {
     return payments.map(this.formatPayment);
   }
 
-  static async create(data: CreatePaymentDTO, userId?: string): Promise<PaymentResponse> {
-    // Validate loan exists and is not settled
-    const loan = await LoanRepository.findById(data.loanId);
-    if (!loan) {
-      throw new Error('Prestamo no encontrado');
+  static async create(data: CreatePaymentDTO, userId?: string): Promise<PaymentResponse[]> {
+    // Validate customer exists
+    const customer = await CustomerRepository.findById(data.customerId);
+    if (!customer) {
+      throw new Error('Cliente no encontrado');
     }
 
-    if (loan.isSettled) {
-      throw new Error('No se puede registrar pago en un prestamo liquidado');
+    // Fetch all active loans for this customer
+    const activeLoans = await LoanRepository.findActiveByCustomerId(data.customerId);
+    if (activeLoans.length === 0) {
+      throw new Error('El cliente no tiene prestamos activos');
     }
 
     // Validate amounts
@@ -72,37 +75,93 @@ export class PaymentService {
       throw new Error('Debe ingresar al menos un monto de interes o capital');
     }
 
-    // Calculate current balance
-    const totalPaidCapital = loan.payments.reduce(
-      (sum, p) => sum + Number(p.capitalPaid),
-      0
-    );
-    const currentBalance = Number(loan.originalAmount) - totalPaidCapital;
+    // Calculate each loan's current balance
+    const loansWithBalance = activeLoans.map((loan) => {
+      const totalPaidCapital = loan.payments.reduce(
+        (sum, p) => sum + Number(p.capitalPaid),
+        0
+      );
+      const currentBalance = Number(loan.originalAmount) - totalPaidCapital;
+      return { loan, currentBalance };
+    });
 
-    // Validate capital payment doesn't exceed balance
-    if (data.capitalPaid > currentBalance) {
+    const totalBalance = loansWithBalance.reduce((sum, l) => sum + l.currentBalance, 0);
+
+    // Validate capital doesn't exceed total combined balance
+    if (data.capitalPaid > totalBalance) {
       throw new Error(
-        `El pago de capital ($${data.capitalPaid}) excede el saldo actual ($${currentBalance})`
+        `El pago de capital ($${data.capitalPaid}) excede el saldo total ($${totalBalance})`
       );
     }
 
-    const payment = await PaymentRepository.create({
-      loanId: data.loanId,
-      paymentDate: new Date(data.paymentDate),
-      interestPaid: data.interestPaid,
-      capitalPaid: data.capitalPaid,
-      paymentMethod: data.paymentMethod as PaymentMethod | undefined,
-      notes: data.notes,
-      createdBy: userId,
-    });
+    // Distribute capital — sort by currentBalance ASC (smallest first)
+    const sortedByBalance = [...loansWithBalance].sort(
+      (a, b) => a.currentBalance - b.currentBalance
+    );
 
-    // Auto-settle if capital balance reaches zero
-    const newBalance = currentBalance - data.capitalPaid;
-    if (newBalance <= 0) {
-      await LoanRepository.settle(data.loanId);
+    const capitalDistribution = new Map<string, number>();
+    let remainingCapital = data.capitalPaid;
+
+    for (const { loan, currentBalance } of sortedByBalance) {
+      if (remainingCapital <= 0) break;
+      const capitalForLoan = Math.min(remainingCapital, currentBalance);
+      if (capitalForLoan > 0) {
+        capitalDistribution.set(loan.id, capitalForLoan);
+        remainingCapital -= capitalForLoan;
+      }
     }
 
-    return this.formatPayment(payment);
+    // Distribute interest — proportional to each loan's balance
+    const interestDistribution = new Map<string, number>();
+    if (data.interestPaid > 0 && totalBalance > 0) {
+      let interestAssigned = 0;
+      const loansToDistribute = loansWithBalance.filter((l) => l.currentBalance > 0);
+
+      for (let i = 0; i < loansToDistribute.length; i++) {
+        const { loan, currentBalance } = loansToDistribute[i];
+        if (i === loansToDistribute.length - 1) {
+          // Last loan gets the remainder to avoid rounding issues
+          interestDistribution.set(loan.id, Math.round((data.interestPaid - interestAssigned) * 100) / 100);
+        } else {
+          const interestForLoan = Math.round(data.interestPaid * (currentBalance / totalBalance) * 100) / 100;
+          interestDistribution.set(loan.id, interestForLoan);
+          interestAssigned += interestForLoan;
+        }
+      }
+    }
+
+    // Collect all loan IDs that receive any money
+    const allLoanIds = new Set<string>();
+    for (const [id] of capitalDistribution) allLoanIds.add(id);
+    for (const [id] of interestDistribution) allLoanIds.add(id);
+
+    // Create one payment record per loan
+    const createdPayments: PaymentResponse[] = [];
+
+    for (const loanId of allLoanIds) {
+      const capitalForLoan = capitalDistribution.get(loanId) ?? 0;
+      const interestForLoan = interestDistribution.get(loanId) ?? 0;
+
+      const payment = await PaymentRepository.create({
+        loanId,
+        paymentDate: new Date(data.paymentDate),
+        interestPaid: interestForLoan,
+        capitalPaid: capitalForLoan,
+        paymentMethod: data.paymentMethod as PaymentMethod | undefined,
+        notes: data.notes,
+        createdBy: userId,
+      });
+
+      createdPayments.push(this.formatPayment(payment));
+
+      // Auto-settle if balance reaches zero
+      const loanData = loansWithBalance.find((l) => l.loan.id === loanId);
+      if (loanData && loanData.currentBalance - capitalForLoan <= 0) {
+        await LoanRepository.settle(loanId);
+      }
+    }
+
+    return createdPayments;
   }
 
   static async update(id: string, data: UpdatePaymentDTO): Promise<PaymentResponse> {
