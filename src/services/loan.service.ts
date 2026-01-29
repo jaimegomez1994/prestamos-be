@@ -107,7 +107,15 @@ export class LoanService {
       throw new Error('Prestamo no encontrado');
     }
 
-    await LoanRepository.update(id, data);
+    const updateData: any = {};
+    if (data.customerId !== undefined) updateData.customerId = data.customerId;
+    if (data.investorId !== undefined) updateData.investorId = data.investorId;
+    if (data.originalAmount !== undefined) updateData.originalAmount = data.originalAmount;
+    if (data.loanDate !== undefined) updateData.loanDate = new Date(data.loanDate);
+    if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    await LoanRepository.update(id, updateData);
     return this.getById(id);
   }
 

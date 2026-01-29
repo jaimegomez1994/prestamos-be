@@ -8,8 +8,12 @@ export interface CreateLoanDTO {
 }
 
 export interface UpdateLoanDTO {
-  notes?: string;
+  customerId?: string;
+  investorId?: string;
+  originalAmount?: number;
+  loanDate?: string;
   paymentMethod?: 'EFECTIVO' | 'TRANSFERENCIA';
+  notes?: string;
 }
 
 export interface LoanResponse {
