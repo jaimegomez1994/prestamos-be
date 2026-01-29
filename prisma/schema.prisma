@@ -137,3 +137,18 @@ model CollectionStatus {
   @@index([cycleDate])
   @@map("collection_status")
 }
+
+model Attachment {
+  id           String   @id @default(uuid())
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  filename     String
+  originalName String   @map("original_name")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  uploadedBy   String?  @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
