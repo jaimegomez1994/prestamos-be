@@ -5,6 +5,9 @@ export interface InvestorReportItem {
   activeLoans: number;
   settledLoans: number;
   totalInvested: number;
+  totalLentHistorical: number;
+  currentOutstandingBalance: number;
+  newLoansAmount: number;
   totalInterestEarned: number;
   totalCapitalReturned: number;
   investorProfit: number;
@@ -15,6 +18,7 @@ export interface InvestorReportResponse {
   investors: InvestorReportItem[];
   totals: {
     totalInvested: number;
+    totalLentHistorical: number;
     totalInterestEarned: number;
     totalCapitalReturned: number;
     totalInvestorProfit: number;

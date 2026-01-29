@@ -11,6 +11,7 @@ import type {
 export class ReportService {
   static async getInvestorReport(filters: ReportFilters): Promise<InvestorReportResponse> {
     const investors = await ReportRepository.getInvestorStats(filters);
+    const hasDateFilter = !!(filters.startDate || filters.endDate);
 
     const investorItems: InvestorReportItem[] = investors.map((investor) => {
       const activeLoans = investor.loans.filter((l) => !l.isSettled);
@@ -20,6 +21,40 @@ export class ReportService {
         (sum, loan) => sum + Number(loan.originalAmount),
         0
       );
+
+      const totalLentHistorical = investor.loans.reduce(
+        (sum, loan) => sum + Number(loan.originalAmount),
+        0
+      );
+
+      // Current outstanding balance: for active loans, originalAmount - all capital paid
+      let currentOutstandingBalance: number;
+      if (hasDateFilter && investor._currentOutstandingBalance !== undefined) {
+        currentOutstandingBalance = investor._currentOutstandingBalance;
+      } else {
+        currentOutstandingBalance = activeLoans.reduce((sum, loan) => {
+          const paidCapital = loan.payments.reduce(
+            (pSum, p) => pSum + Number(p.capitalPaid),
+            0
+          );
+          return sum + Number(loan.originalAmount) - paidCapital;
+        }, 0);
+      }
+
+      // New loans in date range
+      let newLoansAmount = 0;
+      if (hasDateFilter) {
+        const start = filters.startDate ? new Date(filters.startDate) : null;
+        const end = filters.endDate ? new Date(filters.endDate) : null;
+        for (const loan of investor.loans) {
+          const loanDate = new Date(loan.loanDate);
+          if ((!start || loanDate >= start) && (!end || loanDate <= end)) {
+            newLoansAmount += Number(loan.originalAmount);
+          }
+        }
+      } else {
+        newLoansAmount = totalLentHistorical;
+      }
 
       const totalInterestEarned = investor.loans.reduce(
         (sum, loan) =>
@@ -46,6 +81,9 @@ export class ReportService {
         activeLoans: activeLoans.length,
         settledLoans: settledLoans.length,
         totalInvested,
+        totalLentHistorical,
+        currentOutstandingBalance,
+        newLoansAmount,
         totalInterestEarned,
         totalCapitalReturned,
         investorProfit,
@@ -56,6 +94,7 @@ export class ReportService {
     const totals = investorItems.reduce(
       (acc, item) => ({
         totalInvested: acc.totalInvested + item.totalInvested,
+        totalLentHistorical: acc.totalLentHistorical + item.totalLentHistorical,
         totalInterestEarned: acc.totalInterestEarned + item.totalInterestEarned,
         totalCapitalReturned: acc.totalCapitalReturned + item.totalCapitalReturned,
         totalInvestorProfit: acc.totalInvestorProfit + item.investorProfit,
@@ -63,6 +102,7 @@ export class ReportService {
       }),
       {
         totalInvested: 0,
+        totalLentHistorical: 0,
         totalInterestEarned: 0,
         totalCapitalReturned: 0,
         totalInvestorProfit: 0,

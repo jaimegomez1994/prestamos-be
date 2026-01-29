@@ -4,6 +4,16 @@ import type { ReportFilters } from '../types/report.types';
 export class ReportRepository {
   static async getInvestorStats(filters: ReportFilters) {
     const { startDate, endDate, investorId } = filters;
+    const hasDateFilter = !!(startDate || endDate);
+
+    const dateWhere = hasDateFilter
+      ? {
+          paymentDate: {
+            ...(startDate ? { gte: new Date(startDate) } : {}),
+            ...(endDate ? { lte: new Date(endDate) } : {}),
+          },
+        }
+      : {};
 
     const investors = await prisma.investor.findMany({
       where: investorId ? { id: investorId } : undefined,
@@ -11,16 +21,11 @@ export class ReportRepository {
         loans: {
           include: {
             payments: {
-              where: {
-                ...(startDate || endDate
-                  ? {
-                      paymentDate: {
-                        ...(startDate ? { gte: new Date(startDate) } : {}),
-                        ...(endDate ? { lte: new Date(endDate) } : {}),
-                      },
-                    }
-                  : {}),
-              },
+              where: dateWhere,
+            },
+            // Include all payments count for balance calculation
+            _count: {
+              select: { payments: true },
             },
           },
         },
@@ -28,7 +33,43 @@ export class ReportRepository {
       orderBy: { name: 'asc' },
     });
 
-    return investors;
+    // If date filter is active, also fetch all payments for balance calculation
+    if (hasDateFilter) {
+      const investorsWithAllPayments = await prisma.investor.findMany({
+        where: investorId ? { id: investorId } : undefined,
+        include: {
+          loans: {
+            where: { isSettled: false },
+            include: {
+              payments: {
+                select: { capitalPaid: true },
+              },
+            },
+          },
+        },
+      });
+
+      // Attach balance data
+      const balanceMap = new Map<string, number>();
+      for (const inv of investorsWithAllPayments) {
+        let balance = 0;
+        for (const loan of inv.loans) {
+          const paidCapital = loan.payments.reduce((s, p) => s + Number(p.capitalPaid), 0);
+          balance += Number(loan.originalAmount) - paidCapital;
+        }
+        balanceMap.set(inv.id, balance);
+      }
+
+      return investors.map((inv) => ({
+        ...inv,
+        _currentOutstandingBalance: balanceMap.get(inv.id) ?? 0,
+      }));
+    }
+
+    return investors.map((inv) => ({
+      ...inv,
+      _currentOutstandingBalance: undefined as number | undefined,
+    }));
   }
 
   static async getPaymentsByPeriod(filters: ReportFilters, groupBy: 'month' | 'week' = 'month') {
