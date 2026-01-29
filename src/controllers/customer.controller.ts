@@ -109,10 +109,12 @@ export class CustomerController {
     } catch (error) {
       console.error('Deactivate customer error:', error);
       const message = error instanceof Error ? error.message : 'Error del servidor';
-      const statusCode = message.includes('no encontrado') ? 404 : 500;
+      const statusCode = message.includes('no encontrado') ? 404
+        : message.includes('prestamos activos') ? 400
+        : 500;
 
       res.status(statusCode).json({
-        error: { code: statusCode === 404 ? 'NOT_FOUND' : 'SERVER_ERROR', message },
+        error: { code: statusCode === 404 ? 'NOT_FOUND' : statusCode === 400 ? 'BAD_REQUEST' : 'SERVER_ERROR', message },
       });
     }
   }

@@ -105,8 +105,12 @@ export class CustomerService {
       throw new Error('Cliente no encontrado');
     }
 
-    const customer = await CustomerRepository.deactivate(id);
     const stats = await CustomerRepository.getCustomerStats(id);
+    if (stats.activeLoansCount > 0) {
+      throw new Error('No se puede desactivar un cliente con prestamos activos');
+    }
+
+    const customer = await CustomerRepository.deactivate(id);
 
     return {
       id: customer.id,
