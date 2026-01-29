@@ -96,6 +96,12 @@ export class PaymentService {
       createdBy: userId,
     });
 
+    // Auto-settle if capital balance reaches zero
+    const newBalance = currentBalance - data.capitalPaid;
+    if (newBalance <= 0) {
+      await LoanRepository.settle(data.loanId);
+    }
+
     return this.formatPayment(payment);
   }
 
@@ -103,10 +109,6 @@ export class PaymentService {
     const existing = await PaymentRepository.findById(id);
     if (!existing) {
       throw new Error('Pago no encontrado');
-    }
-
-    if (existing.loan.isSettled) {
-      throw new Error('No se puede modificar pago de un prestamo liquidado');
     }
 
     // If updating capital, validate it doesn't exceed balance
@@ -134,6 +136,23 @@ export class PaymentService {
     if (data.notes !== undefined) updateData.notes = data.notes;
 
     const payment = await PaymentRepository.update(id, updateData);
+
+    // Recalculate balance and auto-settle/reopen
+    const loanAfterUpdate = await LoanRepository.findById(existing.loanId);
+    if (loanAfterUpdate) {
+      const totalCapitalAfterUpdate = loanAfterUpdate.payments.reduce(
+        (sum, p) => sum + Number(p.capitalPaid),
+        0
+      );
+      const balanceAfterUpdate = Number(loanAfterUpdate.originalAmount) - totalCapitalAfterUpdate;
+
+      if (balanceAfterUpdate <= 0 && !loanAfterUpdate.isSettled) {
+        await LoanRepository.settle(existing.loanId);
+      } else if (balanceAfterUpdate > 0 && loanAfterUpdate.isSettled) {
+        await LoanRepository.reopen(existing.loanId);
+      }
+    }
+
     return this.formatPayment(payment);
   }
 
@@ -143,10 +162,21 @@ export class PaymentService {
       throw new Error('Pago no encontrado');
     }
 
-    if (existing.loan.isSettled) {
-      throw new Error('No se puede eliminar pago de un prestamo liquidado');
-    }
-
+    const loanId = existing.loanId;
     await PaymentRepository.delete(id);
+
+    // Recalculate balance and auto-reopen if needed
+    const loan = await LoanRepository.findById(loanId);
+    if (loan && loan.isSettled) {
+      const totalCapitalAfterDelete = loan.payments.reduce(
+        (sum, p) => sum + Number(p.capitalPaid),
+        0
+      );
+      const balanceAfterDelete = Number(loan.originalAmount) - totalCapitalAfterDelete;
+
+      if (balanceAfterDelete > 0) {
+        await LoanRepository.reopen(loanId);
+      }
+    }
   }
 }

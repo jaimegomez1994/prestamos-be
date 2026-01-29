@@ -30,13 +30,6 @@ router.put(
   LoanController.update
 );
 
-// POST /api/loans/:id/settle - Mark loan as settled (admin only)
-router.post(
-  '/:id/settle',
-  requireRole('admin'),
-  LoanController.settle
-);
-
 // POST /api/loans/:id/reopen - Reopen settled loan (admin only)
 router.post(
   '/:id/reopen',

@@ -119,20 +119,6 @@ export class LoanService {
     return this.getById(id);
   }
 
-  static async settle(id: string): Promise<LoanResponse> {
-    const existing = await LoanRepository.findById(id);
-    if (!existing) {
-      throw new Error('Prestamo no encontrado');
-    }
-
-    if (existing.isSettled) {
-      throw new Error('El prestamo ya esta liquidado');
-    }
-
-    await LoanRepository.settle(id);
-    return this.getById(id);
-  }
-
   static async reopen(id: string): Promise<LoanResponse> {
     const existing = await LoanRepository.findById(id);
     if (!existing) {

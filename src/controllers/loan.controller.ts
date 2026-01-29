@@ -91,22 +91,6 @@ export class LoanController {
     }
   }
 
-  static async settle(req: Request<{ id: string }>, res: Response) {
-    try {
-      const { id } = req.params;
-      const result = await LoanService.settle(id);
-      res.json(result);
-    } catch (error) {
-      console.error('Settle loan error:', error);
-      const message = error instanceof Error ? error.message : 'Error del servidor';
-      const statusCode = message.includes('no encontrado') ? 404 : message.includes('ya esta') ? 400 : 500;
-
-      res.status(statusCode).json({
-        error: { code: statusCode === 404 ? 'NOT_FOUND' : statusCode === 400 ? 'BAD_REQUEST' : 'SERVER_ERROR', message },
-      });
-    }
-  }
-
   static async reopen(req: Request<{ id: string }>, res: Response) {
     try {
       const { id } = req.params;
