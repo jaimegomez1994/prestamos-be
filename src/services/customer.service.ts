@@ -7,22 +7,23 @@ export class CustomerService {
     const page = filters.page || 1;
     const pageSize = filters.pageSize || 20;
 
-    const customersWithStats = await Promise.all(
-      customers.map(async (customer) => {
-        const stats = await CustomerRepository.getCustomerStats(customer.id);
-        return {
-          id: customer.id,
-          name: customer.name,
-          phone: customer.phone,
-          notes: customer.notes,
-          isActive: customer.isActive,
-          createdAt: customer.createdAt,
-          updatedAt: customer.updatedAt,
-          activeLoansCount: stats.activeLoansCount,
-          totalOwed: stats.totalOwed,
-        };
-      })
-    );
+    const customerIds = customers.map((c) => c.id);
+    const statsMap = await CustomerRepository.getAllCustomerStats(customerIds);
+
+    const customersWithStats = customers.map((customer) => {
+      const stats = statsMap.get(customer.id) ?? { activeLoansCount: 0, totalOwed: 0 };
+      return {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        notes: customer.notes,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        activeLoansCount: stats.activeLoansCount,
+        totalOwed: stats.totalOwed,
+      };
+    });
 
     return {
       customers: customersWithStats,

@@ -95,4 +95,26 @@ export class CustomerRepository {
       totalOwed,
     };
   }
+
+  static async getAllCustomerStats(customerIds: string[]): Promise<Map<string, { activeLoansCount: number; totalOwed: number }>> {
+    const loans = await prisma.loan.findMany({
+      where: { customerId: { in: customerIds }, isSettled: false },
+      include: { payments: { select: { capitalPaid: true } } },
+    });
+
+    const statsMap = new Map<string, { activeLoansCount: number; totalOwed: number }>();
+
+    for (const id of customerIds) {
+      statsMap.set(id, { activeLoansCount: 0, totalOwed: 0 });
+    }
+
+    for (const loan of loans) {
+      const entry = statsMap.get(loan.customerId)!;
+      const paidCapital = loan.payments.reduce((sum, p) => sum + Number(p.capitalPaid), 0);
+      entry.activeLoansCount += 1;
+      entry.totalOwed += Number(loan.originalAmount) - paidCapital;
+    }
+
+    return statsMap;
+  }
 }
